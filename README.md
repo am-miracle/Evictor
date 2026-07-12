@@ -1,2 +1,2 @@
 # Evictor
-an infrastructure control plane for AI inference workloads.
+An observability and control layer for AI inference workloads running on serverless GPU providers.
