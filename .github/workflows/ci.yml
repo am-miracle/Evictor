@@ -45,12 +45,16 @@ jobs:
         env:
           BASE_REF: ${{ github.base_ref }}
           BEFORE_SHA: ${{ github.event.before }}
+          REF_NAME: ${{ github.ref_name }}
         run: |
           zero_sha=0000000000000000000000000000000000000000
           if [ -n "$BASE_REF" ]; then
             npx commitlint --from "origin/$BASE_REF" --to HEAD --verbose
-          elif [ -n "$BEFORE_SHA" ] && [ "$BEFORE_SHA" != "$zero_sha" ]; then
+          elif [ -n "$BEFORE_SHA" ] && [ "$BEFORE_SHA" != "$zero_sha" ] && git cat-file -e "$BEFORE_SHA^{commit}" 2>/dev/null; then
             npx commitlint --from "$BEFORE_SHA" --to HEAD --verbose
+          elif [ "$REF_NAME" != "dev" ] && [ "$REF_NAME" != "master" ]; then
+            git fetch origin dev:refs/remotes/origin/dev
+            npx commitlint --from origin/dev --to HEAD --verbose
           else
             git log -1 --pretty=%B | npx commitlint --verbose
           fi
