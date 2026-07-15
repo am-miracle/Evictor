@@ -1,0 +1,44 @@
+#!/bin/sh
+
+zero_sha="0000000000000000000000000000000000000000"
+dev_ref="refs/remotes/origin/dev"
+
+while read -r local_ref local_sha remote_ref remote_sha; do
+  case "$remote_ref" in
+    refs/heads/master)
+      echo "Push rejected: direct pushes to master are prohibited."
+      echo "Only the reviewed dev-to-master promotion pull request may update production."
+      exit 1
+      ;;
+    refs/heads/dev)
+      if [ "$remote_sha" = "$zero_sha" ] && [ "${EVICTOR_BOOTSTRAP_DEV:-0}" = "1" ]; then
+        echo "Bootstrapping the remote dev branch. This exception works only for initial creation."
+        continue
+      fi
+      echo "Push rejected: direct pushes to dev are prohibited."
+      echo "Push a feature branch and open a reviewed pull request into dev."
+      exit 1
+      ;;
+  esac
+
+  # Branch deletion has no commit whose ancestry needs checking.
+  [ "$local_sha" = "$zero_sha" ] && continue
+
+  if ! git rev-parse --verify --quiet "$dev_ref" >/dev/null; then
+    echo "Push rejected: origin/dev is not available locally."
+    echo "Run 'git fetch origin dev', then create your branch from origin/dev."
+    exit 1
+  fi
+
+  if ! git merge-base --is-ancestor "$dev_ref" "$local_sha"; then
+    echo "Push rejected: $local_ref was not created from the current origin/dev history."
+    echo "Rebase the branch onto origin/dev before pushing."
+    exit 1
+  fi
+done
+
+echo "Running repository lint checks..."
+make lint || exit 1
+
+echo "Running repository tests..."
+make test || exit 1
