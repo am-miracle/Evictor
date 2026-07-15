@@ -5,8 +5,17 @@ dev_ref="refs/remotes/origin/dev"
 
 while read -r local_ref local_sha remote_ref remote_sha; do
   case "$remote_ref" in
-    refs/heads/master|refs/heads/dev)
-      echo "Push rejected: direct pushes to master and dev are prohibited."
+    refs/heads/master)
+      echo "Push rejected: direct pushes to master are prohibited."
+      echo "Only the reviewed dev-to-master promotion pull request may update production."
+      exit 1
+      ;;
+    refs/heads/dev)
+      if [ "$remote_sha" = "$zero_sha" ] && [ "${EVICTOR_BOOTSTRAP_DEV:-0}" = "1" ]; then
+        echo "Bootstrapping the remote dev branch. This exception works only for initial creation."
+        continue
+      fi
+      echo "Push rejected: direct pushes to dev are prohibited."
       echo "Push a feature branch and open a reviewed pull request into dev."
       exit 1
       ;;

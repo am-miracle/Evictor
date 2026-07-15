@@ -26,8 +26,11 @@ for (const [name, contents] of [
   }
 }
 
-if (!prePush.includes("refs/heads/master|refs/heads/dev")) {
+if (!prePush.includes("refs/heads/master)") || !prePush.includes("refs/heads/dev)")) {
   throw new Error("pre-push hook does not protect master and dev");
+}
+if (!prePush.includes("EVICTOR_BOOTSTRAP_DEV")) {
+  throw new Error("pre-push hook does not define the one-time dev bootstrap path");
 }
 if (!prePush.includes('dev_ref="refs/remotes/origin/dev"')) {
   throw new Error("pre-push hook does not require branches based on origin/dev");

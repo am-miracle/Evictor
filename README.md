@@ -39,3 +39,14 @@ The branch flow is:
 
 Direct pushes to `dev` and `master` are rejected. Feature branches that do not
 contain the current `origin/dev` history are also rejected.
+
+For a brand-new remote with no `dev` branch, a repository owner performs the
+one-time bootstrap from the intended staging commit:
+
+```sh
+git switch -c dev
+EVICTOR_BOOTSTRAP_DEV=1 git push -u origin dev
+```
+
+The exception applies only while the remote `dev` ref does not exist. Every
+subsequent direct update is rejected normally.
