@@ -10,6 +10,7 @@ Requirements: Docker with Compose v2, Go 1.24+, and Node.js 22+.
 npm install
 npm --prefix frontend install
 cp .env.example .env
+./scripts/setup-secrets.sh dev
 docker compose up --build
 ```
 
@@ -21,6 +22,15 @@ Once the containers are healthy:
 
 Run all local checks with `make test` and `make lint`. Database migrations are
 introduced by task 002; until then, `make migrate` is intentionally a no-op.
+Generate the Conventional Commit changelog with `make changelog` after
+installing [git-cliff](https://git-cliff.org/).
+
+Production-like deployments use the same service shape for staging and
+production. Copy the appropriate `deploy/*.env.example` to `deploy/*.env`, set
+image names/tags and the target domain, provision secrets with
+`scripts/setup-secrets.sh` (or a secret manager), then run `make deploy-staging`
+or `make deploy-production`. Those scripts recreate only the API and worker;
+they do not redeploy PostgreSQL or the dashboard.
 
 ## Contribution rules
 

@@ -1,4 +1,5 @@
-package httpapi
+// Package handlers contains HTTP handlers for the versioned API.
+package handlers
 
 import (
 	"encoding/json"
