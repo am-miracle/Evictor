@@ -4,6 +4,9 @@ GOLANGCI_LINT ?= $(shell command -v golangci-lint 2>/dev/null || printf '%s/bin/
 
 dev:
 	./scripts/setup-secrets.sh dev
+.PHONY: dev test lint migrate
+
+dev:
 	docker compose up --build
 
 test:
