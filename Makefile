@@ -1,5 +1,9 @@
 GOLANGCI_LINT ?= $(shell command -v golangci-lint 2>/dev/null || printf '%s/bin/golangci-lint' "$$(go env GOPATH)")
 
+.PHONY: dev test lint migrate changelog deploy-staging deploy-production
+
+dev:
+	./scripts/setup-secrets.sh dev
 .PHONY: dev test lint migrate
 
 dev:
@@ -18,3 +22,12 @@ lint:
 
 migrate:
 	@echo "No migrations yet; task 002 adds the migration tool and schema."
+
+changelog:
+	git-cliff --output CHANGELOG.md
+
+deploy-staging:
+	./scripts/deploy-staging.sh
+
+deploy-production:
+	./scripts/deploy-production.sh

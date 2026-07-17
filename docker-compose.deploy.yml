@@ -5,10 +5,7 @@ services:
       POSTGRES_DB: "${POSTGRES_DB:-evictor}"
       POSTGRES_USER: "${POSTGRES_USER:-evictor}"
       POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
-    ports:
-      - "${POSTGRES_PORT:-5432}:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
+    volumes: [postgres_data:/var/lib/postgresql/data]
     secrets: [postgres_password]
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
@@ -35,8 +32,7 @@ services:
         max-file: "3"
 
   backend:
-    build:
-      context: ./backend
+    image: "${BACKEND_IMAGE:?BACKEND_IMAGE is required}:${IMAGE_TAG:?IMAGE_TAG is required}"
     environment:
       EVICTOR_ROLE: api
       PORT: 8080
@@ -75,8 +71,7 @@ services:
         max-file: "3"
 
   worker:
-    build:
-      context: ./backend
+    image: "${BACKEND_IMAGE:?BACKEND_IMAGE is required}:${IMAGE_TAG:?IMAGE_TAG is required}"
     command: ["worker"]
     environment:
       EVICTOR_ROLE: worker
@@ -108,12 +103,10 @@ services:
         max-file: "3"
 
   frontend:
-    build:
-      context: ./frontend
-      target: dev
-    command: ["npm", "run", "dev"]
+    image: "${FRONTEND_IMAGE:?FRONTEND_IMAGE is required}:${IMAGE_TAG:?IMAGE_TAG is required}"
     environment:
       NEXT_PUBLIC_API_URL: "${NEXT_PUBLIC_API_URL:-http://localhost:8080}"
+      TARGET_DOMAIN: "${TARGET_DOMAIN:?TARGET_DOMAIN is required}"
     ports:
       - "${FRONTEND_PORT:-3000}:3000"
     depends_on:
@@ -140,15 +133,16 @@ services:
 
 volumes:
   postgres_data:
+    name: "${COMPOSE_PROJECT_NAME:-evictor}_postgres_data"
 
 secrets:
   postgres_password:
-    file: "${SECRETS_DIR:-./secrets/dev}/postgres_password"
+    file: "${SECRETS_DIR:?SECRETS_DIR is required}/postgres_password"
   database_url:
-    file: "${SECRETS_DIR:-./secrets/dev}/database_url"
+    file: "${SECRETS_DIR:?SECRETS_DIR is required}/database_url"
   encryption_key:
-    file: "${SECRETS_DIR:-./secrets/dev}/encryption_key"
+    file: "${SECRETS_DIR:?SECRETS_DIR is required}/encryption_key"
 
 networks:
   default:
-    name: "${COMPOSE_NETWORK:-evictor-dev}"
+    name: "${COMPOSE_NETWORK:?COMPOSE_NETWORK is required}"
