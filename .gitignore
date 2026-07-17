@@ -32,6 +32,10 @@ secrets/
 deploy/*.env
 !deploy/*.env.example
 
+# Local Docker secret files; keep only the public manifest tracked.
+secrets/*
+!secrets/README.md
+
 # Frontend
 /node_modules/
 frontend/node_modules/
