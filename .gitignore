@@ -28,6 +28,9 @@ go.work.sum
 .env
 .env.*
 !.env.example
+secrets/
+deploy/*.env
+!deploy/*.env.example
 
 # Frontend
 /node_modules/
