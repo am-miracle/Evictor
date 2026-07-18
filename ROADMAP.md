@@ -6,6 +6,8 @@ make the data trustworthy, then add control features.
 
 ## Current direction
 
+Status: In progress
+
 Phase 1 is the priority. It is a read-only observability product. No provider
 state is changed in Phase 1, and no feature should depend on a future
 prewarming system.
@@ -14,21 +16,11 @@ The repository foundation is being built first: a Go API, a Next.js dashboard,
 PostgreSQL, Docker Compose, CI, strict type checking, and repeatable local
 checks.
 
-## Before implementation: validate the problem
-
-Two decisions must be settled before the numbered work continues:
-
-1. Speak with 15 teams and keep verbatim notes. At least five must confirm
-   cold-start latency or idle GPU spend as a top-three infrastructure problem.
-2. Complete the RunPod API spike. Record worker-state polling, workersMin
-   mutation behavior, latency, and cost in an integration ADR.
-
-The team reviews both results and decides whether to proceed, pivot, or stop.
-Task 008 cannot begin without the provider ADR.
-
 ## Phase 1: observability
 
 ### Foundation
+
+Status: In progress
 
 Build the platform needed by every later task:
 
@@ -41,6 +33,8 @@ Exit condition: a clean checkout starts a healthy API, migrated database, and
 mock provider. CI is green.
 
 ### Ingestion and authentication
+
+Status: Not started
 
 Add the authentication and ingestion spine:
 
@@ -55,6 +49,8 @@ business rule has a focused test.
 
 ### Provider polling and metrics
 
+Status: Not started
+
 Add read-only provider integration and the metrics engine:
 
 - Mock-provider integration tests first
@@ -66,6 +62,8 @@ Exit condition: hand-calculated synthetic workloads match the metrics engine.
 CI makes no live provider calls.
 
 ### Dashboard and settings
+
+Status: Not started
 
 Expose trusted data through the product:
 
@@ -81,6 +79,8 @@ specification without manual database edits.
 
 ### Proof and hardening
 
+Status: Not started
+
 Prepare for an open-source release:
 
 - Five-minute quick start and seed data
@@ -92,6 +92,8 @@ Exit condition: all hardening findings are recorded, the installer works, and
 the release gates are met.
 
 ## Phase 1 release gate
+
+Status: Pending
 
 Phase 1 is complete when:
 
@@ -105,6 +107,8 @@ After this gate, the team focuses for two weeks on installation and onboarding
 issues before starting Phase 2.
 
 ## Phase 2: controlled prewarming
+
+Status: Blocked by the Phase 1 release gate
 
 Phase 2 starts only after the Phase 1 release gate passes. The order is fixed:
 
