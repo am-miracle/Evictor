@@ -145,11 +145,3 @@ Until the Phase 1 gate passes, do not build:
 
 When a new idea does not fit this roadmap, record it as a separate proposal or
 ADR. Do not add it to an active task by implication.
-
-## Source documents
-
-- [Build order](docs/EVICTOR_BUILD_ORDER.md)
-- [Planning](docs/EVICTOR_PLANNING.md)
-- [Feature specification](docs/EVICTOR_FEATURE_SPEC.md)
-- [Business rules](docs/EVICTOR_BUSINESS_RULES.md)
-- [API contract](docs/EVICTOR_API_CONTRACT.md)
