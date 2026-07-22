@@ -25,6 +25,16 @@ func DefaultScenario() Scenario {
 	return Scenario{Failure: FailureNone}
 }
 
+// delay sleeps for the scenario's configured artificial latency, if any.
+// This is a real sleep regardless of which Clock is in use: it simulates
+// how long the caller's own request actually takes to come back, not a
+// change in the mock provider's simulated notion of time.
+func (s Scenario) delay() {
+	if s.LatencyMs > 0 {
+		time.Sleep(time.Duration(s.LatencyMs) * time.Millisecond)
+	}
+}
+
 // applyFailureHeader checks whether the scenario says to fail this request right now.
 // If it does, it writes the failure response and returns true so the
 // caller (which is a handler) knows to stop and not process the request further.

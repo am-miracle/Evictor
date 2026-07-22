@@ -34,6 +34,7 @@ func handleGetStatus(store *Store, clock Clock) http.HandlerFunc {
 		now := clock.Now()
 
 		endPointState := store.Get(id, now)
+		endPointState.Scenario.delay()
 		// Meaning that a failure applied here and should therefore return
 		if endPointState.Scenario.applyFailureHeader(now, w) {
 			return
@@ -56,6 +57,7 @@ func handleInvoke(store *Store, clock Clock) http.HandlerFunc {
 		now := clock.Now()
 
 		ep := store.Get(id, now)
+		ep.Scenario.delay()
 		if ep.Scenario.applyFailureHeader(now, w) {
 			return
 		}
