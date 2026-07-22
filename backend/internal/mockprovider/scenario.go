@@ -25,10 +25,10 @@ func DefaultScenario() Scenario {
 	return Scenario{Failure: FailureNone}
 }
 
-// apply checks whether the scenario says to fail this request right now.
+// applyFailureHeader checks whether the scenario says to fail this request right now.
 // If it does, it writes the failure response and returns true so the
 // caller (which is a handler) knows to stop and not process the request further.
-func (s Scenario) apply(now time.Time, w http.ResponseWriter) bool {
+func (s Scenario) applyFailureHeader(now time.Time, w http.ResponseWriter) bool {
 	if s.Failure != FailureNone && now.Before(s.FailureUntil) {
 		switch s.Failure {
 		case FailureRateLimited:

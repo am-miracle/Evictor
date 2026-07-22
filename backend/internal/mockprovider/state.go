@@ -13,6 +13,11 @@ const (
 	WarmState    WorkerState = "warm"
 )
 
+const (
+	ColdStartDuration = 8 * time.Second // how long "warming" lasts before becoming "warm"
+	IdleTimeout       = 5 * time.Minute // how long "warm" persists with no action before reverting to cold
+)
+
 type EndpointState struct {
 	ID               string
 	WorkerState      WorkerState
@@ -70,4 +75,25 @@ func (s *Store) Reset() {
 	defer s.mu.Unlock()
 
 	s.endpoints = make(map[string]*EndpointState)
+}
+
+// advance applies time-based state transitions. It does nothing to Cold
+// endpoints — only an invoke or a WorkersMin bump can wake one up.
+func advance(ep *EndpointState, now time.Time) {
+	switch ep.WorkerState {
+	case WarmingState:
+		if now.Sub(ep.LastTransitionAt) >= ColdStartDuration {
+			ep.WorkerState = WarmState
+			ep.WorkerCount = 1
+			ep.LastTransitionAt = now
+
+		}
+
+	case WarmState:
+		if ep.WorkersMin == 0 && now.Sub(ep.LastInvokeAt) >= IdleTimeout {
+			ep.WorkerState = ColdState
+			ep.WorkerCount = 0
+			ep.LastTransitionAt = now
+		}
+	}
 }
