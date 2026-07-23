@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"sync"
 	"testing"
 	"time"
 )
@@ -81,5 +82,52 @@ func TestServer_InvokeThenStatusReflectsWarmingState(t *testing.T) {
 	}
 	if status2.WorkerCount != 1 {
 		t.Fatalf("expected worker_count 1 once warm, got %d", status2.WorkerCount)
+	}
+}
+
+// TestServer_ConcurrentInvokesDoNotRace fires many real, concurrent HTTP
+// requests at the same endpoint. Run with -race to prove the store's
+// locking actually holds up under real concurrent traffic, not just
+// sequential test calls.
+func TestServer_ConcurrentInvokesDoNotRace(t *testing.T) {
+	clock := NewVirtualClock(time.Now())
+	srv := httptest.NewServer(NewServer(NewStore(), clock))
+	defer srv.Close()
+
+	const concurrentRequests = 50
+	var wg sync.WaitGroup
+	wg.Add(concurrentRequests)
+
+	for i := 0; i < concurrentRequests; i++ {
+		go func() {
+			defer wg.Done()
+
+			resp, err := http.Post(srv.URL+"/v1/endpoints/ep_demo/invoke", "application/json", nil)
+			if err != nil {
+				t.Errorf("POST invoke: %v", err)
+				return
+			}
+			defer resp.Body.Close()
+
+			if resp.StatusCode != http.StatusOK {
+				t.Errorf("expected 200, got %d", resp.StatusCode)
+			}
+		}()
+	}
+
+	wg.Wait()
+
+	statusResp, err := http.Get(srv.URL + "/v1/endpoints/ep_demo")
+	if err != nil {
+		t.Fatalf("GET status: %v", err)
+	}
+	defer statusResp.Body.Close()
+
+	var status statusResponse
+	if err := json.NewDecoder(statusResp.Body).Decode(&status); err != nil {
+		t.Fatalf("decode status response: %v", err)
+	}
+	if status.WorkerState != WarmingState {
+		t.Fatalf("expected worker_state %q after concurrent invokes with no time advanced, got %q", WarmingState, status.WorkerState)
 	}
 }

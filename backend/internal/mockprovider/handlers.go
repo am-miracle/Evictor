@@ -33,19 +33,21 @@ func handleGetStatus(store *Store, clock Clock) http.HandlerFunc {
 		id := r.PathValue("id")
 		now := clock.Now()
 
-		endPointState := store.Get(id, now)
-		endPointState.Scenario.delay()
+		scenario := store.Get(id, now).Scenario
+		scenario.delay()
+
 		// Meaning that a failure applied here and should therefore return
-		if endPointState.Scenario.applyFailureHeader(now, w) {
+		if scenario.applyFailureHeader(now, w) {
 			return
 		}
-		advance(endPointState, now)
+
+		ep := store.Status(id, now)
 
 		writeJSON(w, http.StatusOK, statusResponse{
-			ID:          endPointState.ID,
-			WorkerState: endPointState.WorkerState,
-			WorkerCount: endPointState.WorkerCount,
-			WorkersMin:  endPointState.WorkersMin,
+			ID:          ep.ID,
+			WorkerState: ep.WorkerState,
+			WorkerCount: ep.WorkerCount,
+			WorkersMin:  ep.WorkersMin,
 			AsOf:        now,
 		})
 	}
@@ -56,22 +58,16 @@ func handleInvoke(store *Store, clock Clock) http.HandlerFunc {
 		id := r.PathValue("id")
 		now := clock.Now()
 
-		ep := store.Get(id, now)
-		ep.Scenario.delay()
-		if ep.Scenario.applyFailureHeader(now, w) {
+		scenario := store.Get(id, now).Scenario
+		scenario.delay()
+		if scenario.applyFailureHeader(now, w) {
 			return
 		}
 
-		advance(ep, now) // resolve any pending time-based transition first
-
+		ep := store.Invoke(id, now)
 		wasCold := ep.WorkerState != WarmState
-		if ep.WorkerState == ColdState {
-			ep.WorkerState = WarmingState
-			ep.LastTransitionAt = now
-		}
-		ep.LastInvokeAt = now
-
 		latency := warmLatencyMs
+
 		if wasCold {
 			latency = int(ColdStartDuration.Milliseconds())
 		}

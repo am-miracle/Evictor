@@ -39,20 +39,48 @@ func NewStore() *Store {
 	}
 }
 
-func (s *Store) Get(id string, now time.Time) *EndpointState {
+func (s *Store) Get(id string, now time.Time) EndpointState {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	return s.getOrCreateLocked(id, now)
+	return *s.getOrCreateLocked(id, now)
 }
 
 // SetScenario replaces the active chaos config for an endpoint, creating
 // the endpoint first if it hasn't been seen yet.
 func (s *Store) SetScenario(id string, scenario Scenario, now time.Time) {
+	s.Update(id, now, func(es *EndpointState) {
+		es.Scenario = scenario
+	})
+}
+
+func (s *Store) Status(id string, now time.Time) EndpointState {
+	return s.Update(id, now, func(ep *EndpointState) {
+		advance(ep, now)
+	})
+}
+
+func (s *Store) Invoke(id string, now time.Time) EndpointState {
+	return s.Update(id, now, func(ep *EndpointState) {
+		advance(ep, now)
+		if ep.WorkerState == ColdState {
+			ep.WorkerState = WarmingState
+			ep.LastTransitionAt = now
+		}
+		ep.LastInvokeAt = now
+	})
+}
+
+// Update runs fn against the endpoint's live state while the store's lock
+// is held, then returns a snapshot. This is the only place mutation happens.
+func (s *Store) Update(id string, now time.Time, fn func(*EndpointState)) EndpointState {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	s.getOrCreateLocked(id, now).Scenario = scenario
+	ep := s.getOrCreateLocked(id, now)
+	fn(ep)
+
+	return *ep
 }
 
 // getOrCreateLocked assumes s.mu is already held by the caller.
