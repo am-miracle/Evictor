@@ -19,7 +19,7 @@ func main() {
 
 	server := &http.Server{
 		Addr:              ":" + port,
-		Handler:           mockprovider.NewServer(store, mockprovider.RealClock{}),
+		Handler:           mockprovider.NewServer(store, mockprovider.RealClock{}, mockprovider.RealSleeper{}),
 		ReadHeaderTimeout: mockprovider.ReadHeaderTimeout,
 	}
 

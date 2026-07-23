@@ -28,13 +28,13 @@ func writeJSON(w http.ResponseWriter, status int, body any) {
 	_ = json.NewEncoder(w).Encode(body)
 }
 
-func handleGetStatus(store *Store, clock Clock) http.HandlerFunc {
+func handleGetStatus(store *Store, clock Clock, sleeper Sleeper) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id := r.PathValue("id")
 		now := clock.Now()
 
 		scenario := store.Get(id, now).Scenario
-		scenario.delay()
+		scenario.delay(sleeper)
 
 		// Meaning that a failure applied here and should therefore return
 		if scenario.applyFailureHeader(now, w) {
@@ -53,13 +53,13 @@ func handleGetStatus(store *Store, clock Clock) http.HandlerFunc {
 	}
 }
 
-func handleInvoke(store *Store, clock Clock) http.HandlerFunc {
+func handleInvoke(store *Store, clock Clock, sleeper Sleeper) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id := r.PathValue("id")
 		now := clock.Now()
 
 		scenario := store.Get(id, now).Scenario
-		scenario.delay()
+		scenario.delay(sleeper)
 		if scenario.applyFailureHeader(now, w) {
 			return
 		}

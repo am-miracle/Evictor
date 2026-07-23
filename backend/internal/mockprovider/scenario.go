@@ -25,13 +25,26 @@ func DefaultScenario() Scenario {
 	return Scenario{Failure: FailureNone}
 }
 
-// delay sleeps for the scenario's configured artificial latency, if any.
-// This is a real sleep regardless of which Clock is in use: it simulates
-// how long the caller's own request actually takes to come back, not a
-// change in the mock provider's simulated notion of time.
-func (s Scenario) delay() {
+// Sleeper abstracts "actually wait this long," so tests can assert on
+// what delay would have happened without paying for it in wall-clock time.
+type Sleeper interface {
+	Sleep(d time.Duration)
+}
+
+// RealSleeper is what the running service uses: an actual time.Sleep.
+type RealSleeper struct{}
+
+func (RealSleeper) Sleep(d time.Duration) {
+	time.Sleep(d)
+}
+
+// delay tells sleeper to wait for the scenario's configured artificial
+// latency, if any. This simulates how long the caller's own request
+// actually takes to come back, not a change in the mock provider's
+// simulated notion of time, so it's independent of which Clock is in use.
+func (s Scenario) delay(sleeper Sleeper) {
 	if s.LatencyMs > 0 {
-		time.Sleep(time.Duration(s.LatencyMs) * time.Millisecond)
+		sleeper.Sleep(time.Duration(s.LatencyMs) * time.Millisecond)
 	}
 }
 

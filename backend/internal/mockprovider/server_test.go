@@ -10,7 +10,7 @@ import (
 )
 
 func TestServer_Healthz(t *testing.T) {
-	srv := httptest.NewServer(NewServer(NewStore(), &RealClock{}))
+	srv := httptest.NewServer(NewServer(NewStore(), &RealClock{}, RealSleeper{}))
 	defer srv.Close()
 
 	resp, err := http.Get(srv.URL + "/healthz")
@@ -34,7 +34,7 @@ func TestServer_Healthz(t *testing.T) {
 
 func TestServer_InvokeThenStatusReflectsWarmingState(t *testing.T) {
 	clock := NewVirtualClock(time.Now())
-	srv := httptest.NewServer(NewServer(NewStore(), clock))
+	srv := httptest.NewServer(NewServer(NewStore(), clock, RealSleeper{}))
 	defer srv.Close()
 
 	invokeResp, err := http.Post(srv.URL+"/v1/endpoints/ep_demo/invoke", "application/json", nil)
@@ -91,7 +91,7 @@ func TestServer_InvokeThenStatusReflectsWarmingState(t *testing.T) {
 // sequential test calls.
 func TestServer_ConcurrentInvokesDoNotRace(t *testing.T) {
 	clock := NewVirtualClock(time.Now())
-	srv := httptest.NewServer(NewServer(NewStore(), clock))
+	srv := httptest.NewServer(NewServer(NewStore(), clock, RealSleeper{}))
 	defer srv.Close()
 
 	const concurrentRequests = 50

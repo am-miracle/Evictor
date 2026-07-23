@@ -23,7 +23,7 @@ func newStatusRequest(id string) *http.Request {
 func TestHandleInvoke_ColdStartOnFirstInvoke(t *testing.T) {
 	store := NewStore()
 	clock := NewVirtualClock(time.Now())
-	handler := handleInvoke(store, clock)
+	handler := handleInvoke(store, clock, RealSleeper{})
 
 	rec := httptest.NewRecorder()
 	handler(rec, newInvokeRequest("ep_demo"))
@@ -48,7 +48,7 @@ func TestHandleInvoke_ColdStartOnFirstInvoke(t *testing.T) {
 func TestHandleInvoke_StillColdImmediatelyAfterFirstInvoke(t *testing.T) {
 	store := NewStore()
 	clock := NewVirtualClock(time.Now())
-	handler := handleInvoke(store, clock)
+	handler := handleInvoke(store, clock, RealSleeper{})
 
 	handler(httptest.NewRecorder(), newInvokeRequest("ep_demo"))
 
@@ -68,7 +68,7 @@ func TestHandleInvoke_StillColdImmediatelyAfterFirstInvoke(t *testing.T) {
 func TestHandleInvoke_WarmAfterColdStartDurationPasses(t *testing.T) {
 	store := NewStore()
 	clock := NewVirtualClock(time.Now())
-	handler := handleInvoke(store, clock)
+	handler := handleInvoke(store, clock, RealSleeper{})
 
 	handler(httptest.NewRecorder(), newInvokeRequest("ep_demo"))
 
@@ -93,7 +93,7 @@ func TestHandleInvoke_WarmAfterColdStartDurationPasses(t *testing.T) {
 func TestHandleGetStatus_RateLimitedScenario(t *testing.T) {
 	store := NewStore()
 	clock := NewVirtualClock(time.Now())
-	handler := handleGetStatus(store, clock)
+	handler := handleGetStatus(store, clock, RealSleeper{})
 
 	store.SetScenario("ep_demo", Scenario{
 		Failure:      FailureRateLimited,

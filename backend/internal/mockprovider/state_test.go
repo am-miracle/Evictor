@@ -59,6 +59,23 @@ func TestStore_Reset(t *testing.T) {
 	}
 }
 
+// TestAdvance_ResolvesMultipleTransitionsInOneJump proves advance doesn't
+// stop after the first transition: jumping past both ColdStartDuration
+// and IdleTimeout in one go must land on Cold, not get stuck on Warm.
+func TestAdvance_ResolvesMultipleTransitionsInOneJump(t *testing.T) {
+	store := NewStore()
+	t0 := time.Now()
+
+	store.Invoke("ep_demo", t0) // cold -> warming, LastInvokeAt = t0
+
+	farFuture := t0.Add(ColdStartDuration + IdleTimeout + time.Second)
+	ep := store.Status("ep_demo", farFuture)
+
+	if ep.WorkerState != ColdState {
+		t.Fatalf("expected a jump past both thresholds to resolve all the way to %q, got %q", ColdState, ep.WorkerState)
+	}
+}
+
 // TestStore_ConcurrentInvokesDoNotRace fires many goroutines at the same
 // endpoint ID simultaneously. Run with -race: before the Update-based
 // redesign, Store.Get handed out a live pointer that handlers mutated

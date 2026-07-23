@@ -105,23 +105,35 @@ func (s *Store) Reset() {
 	s.endpoints = make(map[string]*EndpointState)
 }
 
-// advance applies time-based state transitions. It does nothing to Cold
-// endpoints — only an invoke or a WorkersMin bump can wake one up.
+// advance applies every time-based state transition implied by now, not
+// just one — if now has jumped far enough to cross multiple thresholds
+// (e.g. past both ColdStartDuration and IdleTimeout), it keeps resolving
+// until the state matches what should actually be true at now. It does
+// nothing to Cold endpoints — only an invoke or a WorkersMin bump can
+// wake one up.
 func advance(ep *EndpointState, now time.Time) {
-	switch ep.WorkerState {
-	case WarmingState:
-		if now.Sub(ep.LastTransitionAt) >= ColdStartDuration {
+	for {
+		switch ep.WorkerState {
+		case WarmingState:
+			warmedAt := ep.LastTransitionAt.Add(ColdStartDuration)
+			if now.Before(warmedAt) {
+				return
+			}
 			ep.WorkerState = WarmState
 			ep.WorkerCount = 1
-			ep.LastTransitionAt = now
+			ep.LastTransitionAt = warmedAt
 
-		}
-
-	case WarmState:
-		if ep.WorkersMin == 0 && now.Sub(ep.LastInvokeAt) >= IdleTimeout {
+		case WarmState:
+			idleAt := ep.LastInvokeAt.Add(IdleTimeout)
+			if ep.WorkersMin > 0 || now.Before(idleAt) {
+				return
+			}
 			ep.WorkerState = ColdState
 			ep.WorkerCount = 0
-			ep.LastTransitionAt = now
+			ep.LastTransitionAt = idleAt
+
+		default:
+			return
 		}
 	}
 }
