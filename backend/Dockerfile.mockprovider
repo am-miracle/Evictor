@@ -1,0 +1,13 @@
+FROM golang:1.24-alpine AS build
+WORKDIR /src
+COPY go.mod ./
+RUN go mod download
+COPY . .
+RUN CGO_ENABLED=0 go build -trimpath -o /mock-provider ./cmd/mock-provider
+
+FROM alpine:3.22
+RUN addgroup -S evictor && adduser -S -G evictor evictor
+USER evictor
+COPY --from=build /mock-provider /usr/local/bin/mock-provider
+EXPOSE 8091
+ENTRYPOINT ["mock-provider"]
