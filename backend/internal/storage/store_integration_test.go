@@ -1,3 +1,5 @@
+//go:build integration
+
 package storage_test
 
 import (
@@ -9,96 +11,57 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgconn"
-	"github.com/testcontainers/testcontainers-go"
-	tcpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
-	"github.com/testcontainers/testcontainers-go/wait"
 
 	"github.com/am-miracle/evictor/internal/models"
 	"github.com/am-miracle/evictor/internal/primitives"
 	"github.com/am-miracle/evictor/internal/storage"
 )
 
-var (
-	testStore  *storage.Store
-	setupErr   error
-	externalDB bool
-)
+var testStore *storage.Store
 
-// TestMain runs the storage suite against either an ephemeral testcontainers
-// Postgres or, when TEST_DATABASE_URL is set, an external database. The external
-// path (e.g. a disposable Neon branch) needs no Docker. It MUST point at a
-// throwaway database: the suite applies migrations and one test tears them down.
+// TestMain requires two disposable databases: one for the storage suite and one
+// for the destructive migration-down test.
 func TestMain(m *testing.M) {
-	ctx := context.Background()
-
-	if dsn := os.Getenv("TEST_DATABASE_URL"); dsn != "" {
-		externalDB = true
-		os.Exit(runAgainst(ctx, m, dsn, nil))
+	dsn := os.Getenv("TEST_DATABASE_URL")
+	if dsn == "" {
+		_, _ = fmt.Fprintln(os.Stderr, "integration tests require TEST_DATABASE_URL")
+		os.Exit(1)
+	}
+	migrationDSN := os.Getenv("MIGRATION_TEST_DATABASE_URL")
+	if migrationDSN == "" {
+		_, _ = fmt.Fprintln(os.Stderr, "integration tests require MIGRATION_TEST_DATABASE_URL")
+		os.Exit(1)
+	}
+	if err := validateIntegrationDatabaseURLs(dsn, migrationDSN); err != nil {
+		_, _ = fmt.Fprintf(os.Stderr, "unsafe integration database configuration: %v\n", err)
+		os.Exit(1)
 	}
 
-	ctr, dsn, err := startPostgres(ctx)
-	if err != nil {
-		// No Docker and no TEST_DATABASE_URL: tests skip themselves.
-		setupErr = err
-		os.Exit(m.Run())
-	}
-	os.Exit(runAgainst(ctx, m, dsn, ctr))
+	os.Exit(runAgainst(context.Background(), m, dsn))
 }
 
-// runAgainst migrates dsn, opens a Store, runs the suite, and cleans up. ctr may
-// be nil in the external-database path.
-func runAgainst(ctx context.Context, m *testing.M, dsn string, ctr *tcpostgres.PostgresContainer) int {
-	terminate := func() {
-		if ctr != nil {
-			_ = ctr.Terminate(ctx)
-		}
-	}
+// runAgainst migrates dsn, opens a Store, and runs the suite. A configured
+// database that cannot be prepared is a test failure rather than a skip.
+func runAgainst(ctx context.Context, m *testing.M, dsn string) int {
 	if err := storage.RunMigrations(dsn); err != nil {
-		setupErr = fmt.Errorf("migrate: %w", err)
-		terminate()
-		return m.Run()
+		_, _ = fmt.Fprintf(os.Stderr, "prepare integration database: migrate: %v\n", err)
+		return 1
 	}
 	store, err := storage.New(ctx, dsn)
 	if err != nil {
-		setupErr = err
-		terminate()
-		return m.Run()
+		_, _ = fmt.Fprintf(os.Stderr, "prepare integration database: connect: %v\n", err)
+		return 1
 	}
 	testStore = store
 
 	code := m.Run()
 
 	store.Close()
-	terminate()
 	return code
-}
-
-func startPostgres(ctx context.Context) (*tcpostgres.PostgresContainer, string, error) {
-	ctr, err := tcpostgres.Run(ctx, "postgres:16-alpine",
-		tcpostgres.WithDatabase("evictor"),
-		tcpostgres.WithUsername("evictor"),
-		tcpostgres.WithPassword("evictor"),
-		testcontainers.WithWaitStrategy(
-			wait.ForLog("database system is ready to accept connections").
-				WithOccurrence(2).WithStartupTimeout(60*time.Second),
-		),
-	)
-	if err != nil {
-		return nil, "", err
-	}
-	dsn, err := ctr.ConnectionString(ctx, "sslmode=disable")
-	if err != nil {
-		_ = ctr.Terminate(ctx)
-		return nil, "", err
-	}
-	return ctr, dsn, nil
 }
 
 func requireStore(t *testing.T) *storage.Store {
 	t.Helper()
-	if setupErr != nil {
-		t.Skipf("skipping: no database available (%v)", setupErr)
-	}
 	return testStore
 }
 
@@ -364,22 +327,11 @@ func TestBR15_ActiveNameUniqueAfterSoftDelete(t *testing.T) {
 	}
 }
 
-// TestMigrateDownReverses proves migrate-down fully reverses on a fresh database.
-// It provisions its own throwaway Postgres, so it is skipped in the external-DB
-// path where dropping every table would clobber the shared test database.
+// TestMigrateDownReverses proves migrate-down fully reverses on a separate,
+// throwaway database because it drops the complete application schema.
 func TestMigrateDownReverses(t *testing.T) {
-	if externalDB {
-		t.Skip("skipping: destructive; covered by CI/testcontainers or `make migrate-down`")
-	}
-	if setupErr != nil {
-		t.Skipf("skipping: no database available (%v)", setupErr)
-	}
+	dsn := os.Getenv("MIGRATION_TEST_DATABASE_URL")
 	ctx := context.Background()
-	ctr, dsn, err := startPostgres(ctx)
-	if err != nil {
-		t.Skipf("skipping: no database available (%v)", err)
-	}
-	defer func() { _ = ctr.Terminate(ctx) }()
 
 	if err := storage.RunMigrations(dsn); err != nil {
 		t.Fatalf("up: %v", err)

@@ -25,6 +25,9 @@ introduced by task 002; until then, `make migrate` is intentionally a no-op.
 Generate the Conventional Commit changelog with `make changelog` after
 installing [git-cliff](https://git-cliff.org/).
 
+Database integration tests run separately; see
+[CONTRIBUTING.md](CONTRIBUTING.md#database-integration-tests) for instructions.
+
 Production-like deployments use the same service shape for staging and
 production. The deployment examples are in `deploy/`, and the compose files
 are `docker-compose.staging.yml` and `docker-compose.production.yml`.

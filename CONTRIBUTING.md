@@ -29,6 +29,23 @@ Install `golangci-lint` at the version used by CI before committing. The root
 Husky hooks run formatting, linting, tests, and Conventional Commit checks.
 The same checks run in CI for every pull request.
 
+### Database integration tests
+
+Database integration tests are separate from the default local test command and
+run in CI against two disposable PostgreSQL databases. To run them locally,
+provide both database URLs explicitly:
+
+```sh
+TEST_DATABASE_URL='postgres://...' \
+MIGRATION_TEST_DATABASE_URL='postgres://...' \
+make test-integration
+```
+
+The URLs must point to separate throwaway databases whose names contain `test`.
+The test runner rejects identical databases and names without that marker. The
+migration test drops the complete application schema. Running the integration
+target without both URLs fails instead of silently skipping the database suite.
+
 Commit messages must use Conventional Commits, for example:
 
 ```text
