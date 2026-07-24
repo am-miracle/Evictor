@@ -64,6 +64,22 @@ jobs:
     defaults:
       run:
         working-directory: backend
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: evictor
+          POSTGRES_USER: evictor
+          POSTGRES_PASSWORD: evictor
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U evictor -d evictor"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgres://evictor:evictor@localhost:5432/evictor?sslmode=disable
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
@@ -75,6 +91,8 @@ jobs:
         with:
           version: v2.5.0
           working-directory: backend
+      - name: Run migrations
+        run: go run -tags 'pgx5' github.com/golang-migrate/migrate/v4/cmd/migrate -path internal/migrations -database "pgx5://evictor:evictor@localhost:5432/evictor?sslmode=disable" up
       - run: go test ./...
 
   frontend:
