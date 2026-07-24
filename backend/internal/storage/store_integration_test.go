@@ -185,6 +185,41 @@ func TestEndpointsRoundTrip(t *testing.T) {
 	}
 }
 
+func TestEndpointRequiresProviderEndpointIDWhenProviderIsSet(t *testing.T) {
+	s := requireStore(t)
+	ctx := context.Background()
+	p := seedProject(t, s)
+
+	provider := &models.Provider{
+		ID:                   primitives.NewProviderID(),
+		ProjectID:            p.ID,
+		Kind:                 models.ProviderRunPod,
+		Name:                 "provider-for-invalid-endpoint",
+		CredentialsEncrypted: []byte("ciphertext"),
+		KeyLast4:             "9f2c",
+		PollingHealth:        models.PollingHealthOK,
+	}
+	if err := s.InsertProvider(ctx, provider); err != nil {
+		t.Fatalf("seed provider: %v", err)
+	}
+
+	endpoint := &models.Endpoint{
+		ID:          primitives.NewEndpointID(),
+		ProjectID:   p.ID,
+		Name:        "missing-provider-endpoint-id",
+		Status:      models.EndpointActive,
+		ProviderID:  &provider.ID,
+		PriceSource: models.PriceSourceDefault,
+	}
+	err := s.InsertEndpoint(ctx, endpoint)
+
+	var pgErr *pgconn.PgError
+	if !errors.As(err, &pgErr) || pgErr.Code != "23514" ||
+		pgErr.ConstraintName != "endpoints_provider_endpoint_required" {
+		t.Fatalf("expected provider endpoint check violation, got %v", err)
+	}
+}
+
 func TestInferenceRequestsRoundTrip(t *testing.T) {
 	s := requireStore(t)
 	ctx := context.Background()

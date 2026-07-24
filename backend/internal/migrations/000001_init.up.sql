@@ -37,6 +37,8 @@ CREATE TABLE endpoints (
                                 CHECK (status IN ('active', 'deleted')),
     provider_id             text        REFERENCES providers (id) ON DELETE SET NULL,
     provider_endpoint_id    text,
+    CONSTRAINT endpoints_provider_endpoint_required
+        CHECK (provider_id IS NULL OR provider_endpoint_id IS NOT NULL),
     hourly_rate_cents       bigint,
     price_source            text        NOT NULL DEFAULT 'default'
                                 CHECK (price_source IN ('default', 'user_confirmed')),
