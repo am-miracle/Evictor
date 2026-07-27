@@ -1,6 +1,9 @@
 package models
 
-import "time"
+import (
+	"log/slog"
+	"time"
+)
 
 type Project struct {
 	ID        string
@@ -18,11 +21,25 @@ const (
 type APIKey struct {
 	ID        string
 	ProjectID string
-	KeyHash   []byte
+	KeyHash   APIKeyHash
 	Last4     string
 	Kind      APIKeyKind
 	ExpiresAt *time.Time
 	CreatedAt time.Time
+}
+
+type APIKeyHash []byte
+
+func (APIKeyHash) LogValue() slog.Value { return slog.StringValue("[REDACTED]") }
+
+func (key APIKey) LogValue() slog.Value {
+	return slog.GroupValue(
+		slog.String("id", key.ID),
+		slog.String("project_id", key.ProjectID),
+		slog.String("last4", key.Last4),
+		slog.String("kind", string(key.Kind)),
+		slog.String("key_hash", "[REDACTED]"),
+	)
 }
 
 type ProviderKind string
@@ -44,10 +61,26 @@ type Provider struct {
 	ProjectID            string
 	Kind                 ProviderKind
 	Name                 string
-	CredentialsEncrypted []byte
+	CredentialsEncrypted ProviderCredentials
 	KeyLast4             string
 	PollingHealth        PollingHealth
 	CreatedAt            time.Time
+}
+
+type ProviderCredentials []byte
+
+func (ProviderCredentials) LogValue() slog.Value { return slog.StringValue("[REDACTED]") }
+
+func (provider Provider) LogValue() slog.Value {
+	return slog.GroupValue(
+		slog.String("id", provider.ID),
+		slog.String("project_id", provider.ProjectID),
+		slog.String("kind", string(provider.Kind)),
+		slog.String("name", provider.Name),
+		slog.String("key_last4", provider.KeyLast4),
+		slog.String("polling_health", string(provider.PollingHealth)),
+		slog.String("credentials_encrypted", "[REDACTED]"),
+	)
 }
 
 type EndpointStatus string
