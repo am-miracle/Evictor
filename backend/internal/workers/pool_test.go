@@ -371,7 +371,7 @@ func TestDrainDeadlineCompletesDespiteBlockingDeadLetterHook_BR14(t *testing.T) 
 	if err := pool.Wait(waitCtx); !errors.Is(err, workers.ErrDrainIncomplete) {
 		t.Fatalf("Wait = %v, want ErrDrainIncomplete", err)
 	}
-	if got := counters.Snapshot().JobsAbandoned; got < 2 {
-		t.Fatalf("jobs abandoned = %d, want at least 2", got)
+	if got := counters.Snapshot().JobsAbandoned; got != 3 {
+		t.Fatalf("jobs abandoned = %d, want 3", got)
 	}
 }

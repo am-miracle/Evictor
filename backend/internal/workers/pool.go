@@ -50,7 +50,8 @@ type Pool struct {
 	stopping     bool
 	executionCtx context.Context
 	cancelJobs   context.CancelFunc
-	inFlight     atomic.Int64
+	accepted     atomic.Int64
+	settled      atomic.Int64
 	abandoned    atomic.Int64
 }
 
@@ -93,6 +94,7 @@ func (p *Pool) Submit(job Job) error {
 	}
 	select {
 	case p.jobs <- job:
+		p.accepted.Add(1)
 		p.metrics.AddQueueDepth(1)
 		return nil
 	default:
@@ -176,7 +178,7 @@ func (p *Pool) drainQueue() {
 }
 
 func (p *Pool) recordAbandoned() {
-	count := p.inFlight.Load() + int64(len(p.jobs))
+	count := p.accepted.Load() - p.settled.Load()
 	if count <= 0 {
 		return
 	}
@@ -212,13 +214,12 @@ func (p *Pool) jobDequeued() {
 }
 
 func (p *Pool) execute(ctx context.Context, job Job) {
-	p.inFlight.Add(1)
-	defer p.inFlight.Add(-1)
 	var err error
 	for attempt := 1; attempt <= p.maxAttempts; attempt++ {
 		err = runJob(ctx, job)
 		if err == nil {
 			p.metrics.JobProcessed()
+			p.settled.Add(1)
 			return
 		}
 		p.logger.Warn("job attempt failed", "attempt", attempt, "max_attempts", p.maxAttempts, "error", err)
@@ -236,6 +237,7 @@ func (p *Pool) recordDeadLetter(job Job, err error) {
 	if p.deadLetter != nil {
 		p.deadLetter(job, err)
 	}
+	p.settled.Add(1)
 }
 
 func runJob(ctx context.Context, job Job) (err error) {
