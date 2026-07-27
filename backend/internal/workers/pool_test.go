@@ -252,3 +252,126 @@ func TestDrainDeadlineDeadLettersRemainingQueuedJobs(t *testing.T) {
 		t.Fatalf("dead-lettered %d jobs, want 2", len(deadLetters))
 	}
 }
+
+func TestDrainDeadlineAbandonsJobThatIgnoresCancellation_BR22(t *testing.T) {
+	counters := metrics.NewCounters(4)
+	started := make(chan struct{})
+	release := make(chan struct{})
+	defer close(release)
+	pool := workers.NewPool(workers.Options{
+		Workers:      1,
+		Capacity:     4,
+		DrainTimeout: 20 * time.Millisecond,
+		Logger:       slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Metrics:      counters,
+	})
+	// Blocks on something unrelated to its context, as a syscall would.
+	if err := pool.Submit(func(context.Context) error {
+		close(started)
+		<-release
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	pool.Start(ctx)
+	<-started
+	cancel()
+
+	waitCtx, stop := context.WithTimeout(context.Background(), 2*time.Second)
+	defer stop()
+	if err := pool.Wait(waitCtx); !errors.Is(err, workers.ErrDrainIncomplete) {
+		t.Fatalf("Wait = %v, want ErrDrainIncomplete", err)
+	}
+	if got := counters.Snapshot().JobsAbandoned; got != 1 {
+		t.Fatalf("jobs abandoned = %d, want 1", got)
+	}
+}
+
+func TestDrainDeadlineDeadLettersQueuedJobsDespiteStuckWorker_BR14(t *testing.T) {
+	started := make(chan struct{})
+	release := make(chan struct{})
+	defer close(release)
+	deadLetters := make(chan struct{}, 4)
+	var queuedJobRan atomic.Bool
+	pool := workers.NewPool(workers.Options{
+		Workers:      1,
+		Capacity:     4,
+		DrainTimeout: 20 * time.Millisecond,
+		Logger:       slog.New(slog.NewTextHandler(io.Discard, nil)),
+		DeadLetter:   func(workers.Job, error) { deadLetters <- struct{}{} },
+	})
+	// Occupies the only worker, so nothing else is ever dequeued by one.
+	if err := pool.Submit(func(context.Context) error {
+		close(started)
+		<-release
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	for range 2 {
+		if err := pool.Submit(func(context.Context) error {
+			queuedJobRan.Store(true)
+			return nil
+		}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	pool.Start(ctx)
+	<-started
+	cancel()
+
+	waitCtx, stop := context.WithTimeout(context.Background(), 2*time.Second)
+	defer stop()
+	if err := pool.Wait(waitCtx); !errors.Is(err, workers.ErrDrainIncomplete) {
+		t.Fatalf("Wait = %v, want ErrDrainIncomplete", err)
+	}
+	if queuedJobRan.Load() {
+		t.Fatal("queued job ran after the drain deadline")
+	}
+	if len(deadLetters) != 2 {
+		t.Fatalf("dead-lettered %d queued jobs, want 2", len(deadLetters))
+	}
+}
+
+func TestDrainDeadlineCompletesDespiteBlockingDeadLetterHook_BR14(t *testing.T) {
+	counters := metrics.NewCounters(4)
+	started := make(chan struct{})
+	release := make(chan struct{})
+	defer close(release)
+	pool := workers.NewPool(workers.Options{
+		Workers:      1,
+		Capacity:     4,
+		DrainTimeout: 20 * time.Millisecond,
+		Logger:       slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Metrics:      counters,
+		// A sink that stalls, as a network dead-letter target can.
+		DeadLetter: func(workers.Job, error) { <-release },
+	})
+	if err := pool.Submit(func(context.Context) error {
+		close(started)
+		<-release
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	for range 2 {
+		if err := pool.Submit(func(context.Context) error { return nil }); err != nil {
+			t.Fatal(err)
+		}
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	pool.Start(ctx)
+	<-started
+	cancel()
+
+	waitCtx, stop := context.WithTimeout(context.Background(), 2*time.Second)
+	defer stop()
+	if err := pool.Wait(waitCtx); !errors.Is(err, workers.ErrDrainIncomplete) {
+		t.Fatalf("Wait = %v, want ErrDrainIncomplete", err)
+	}
+	if got := counters.Snapshot().JobsAbandoned; got < 2 {
+		t.Fatalf("jobs abandoned = %d, want at least 2", got)
+	}
+}

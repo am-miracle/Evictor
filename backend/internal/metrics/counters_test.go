@@ -13,10 +13,11 @@ func TestCountersReportQueueAndJobState(t *testing.T) {
 	counters.JobProcessed()
 	counters.JobFailed()
 	counters.JobDeadLettered()
+	counters.AddJobsAbandoned(2)
 
 	got := counters.Snapshot()
 	if got.QueueDepth != 5 || got.QueueCapacity != 12 || got.JobsProcessed != 1 ||
-		got.JobsFailed != 1 || got.JobsDeadLettered != 1 {
+		got.JobsFailed != 1 || got.JobsDeadLettered != 1 || got.JobsAbandoned != 2 {
 		t.Fatalf("unexpected snapshot: %+v", got)
 	}
 }

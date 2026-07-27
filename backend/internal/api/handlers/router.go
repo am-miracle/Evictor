@@ -59,12 +59,14 @@ func metricsHandler(counters *metrics.Counters) http.HandlerFunc {
 				"evictor_queue_capacity %d\n"+
 				"evictor_jobs_processed_total %d\n"+
 				"evictor_jobs_failed_total %d\n"+
-				"evictor_jobs_dead_lettered_total %d\n",
+				"evictor_jobs_dead_lettered_total %d\n"+
+				"evictor_jobs_abandoned_total %d\n",
 			snapshot.QueueDepth,
 			snapshot.QueueCapacity,
 			snapshot.JobsProcessed,
 			snapshot.JobsFailed,
 			snapshot.JobsDeadLettered,
+			snapshot.JobsAbandoned,
 		)
 	}
 }

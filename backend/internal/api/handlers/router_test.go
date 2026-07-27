@@ -48,9 +48,11 @@ func TestMetricsExposesWorkerCounters(t *testing.T) {
 	counters := metrics.NewCounters(10)
 	counters.SetQueueDepth(4)
 	counters.JobProcessed()
+	counters.AddJobsAbandoned(3)
 	response := serve(t, handlers.Dependencies{Metrics: counters}, "/metrics")
 	if got := response.Body.String(); !strings.Contains(got, "evictor_queue_depth 4\n") ||
-		!strings.Contains(got, "evictor_jobs_processed_total 1\n") {
+		!strings.Contains(got, "evictor_jobs_processed_total 1\n") ||
+		!strings.Contains(got, "evictor_jobs_abandoned_total 3\n") {
 		t.Fatalf("unexpected metrics:\n%s", got)
 	}
 }

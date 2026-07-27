@@ -37,7 +37,7 @@ func TestShutdownDrainsInflightRequest(t *testing.T) {
 
 	responseDone := make(chan string, 1)
 	go func() {
-		defer clientConnection.Close()
+		defer func() { _ = clientConnection.Close() }()
 		if _, err := io.WriteString(clientConnection, "GET / HTTP/1.1\r\nHost: evictor.test\r\nConnection: close\r\n\r\n"); err != nil {
 			responseDone <- err.Error()
 			return
@@ -47,7 +47,7 @@ func TestShutdownDrainsInflightRequest(t *testing.T) {
 			responseDone <- requestErr.Error()
 			return
 		}
-		defer response.Body.Close()
+		defer func() { _ = response.Body.Close() }()
 		body, _ := io.ReadAll(response.Body)
 		responseDone <- string(body)
 	}()
@@ -86,7 +86,7 @@ func TestSIGTERMDuringInflightRequestCompletesAndExitsZero(t *testing.T) {
 			responseDone <- requestErr.Error()
 			return
 		}
-		defer response.Body.Close()
+		defer func() { _ = response.Body.Close() }()
 		body, _ := io.ReadAll(response.Body)
 		responseDone <- string(body)
 	}()

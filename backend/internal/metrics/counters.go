@@ -8,6 +8,7 @@ type Snapshot struct {
 	JobsProcessed    int64 `json:"jobs_processed"`
 	JobsFailed       int64 `json:"jobs_failed"`
 	JobsDeadLettered int64 `json:"jobs_dead_lettered"`
+	JobsAbandoned    int64 `json:"jobs_abandoned"`
 }
 
 type Counters struct {
@@ -16,6 +17,7 @@ type Counters struct {
 	jobsProcessed    atomic.Int64
 	jobsFailed       atomic.Int64
 	jobsDeadLettered atomic.Int64
+	jobsAbandoned    atomic.Int64
 }
 
 func NewCounters(queueCapacity int) *Counters {
@@ -28,6 +30,8 @@ func (c *Counters) JobProcessed()           { c.jobsProcessed.Add(1) }
 func (c *Counters) JobFailed()              { c.jobsFailed.Add(1) }
 func (c *Counters) JobDeadLettered()        { c.jobsDeadLettered.Add(1) }
 
+func (c *Counters) AddJobsAbandoned(count int) { c.jobsAbandoned.Add(int64(count)) }
+
 func (c *Counters) Snapshot() Snapshot {
 	return Snapshot{
 		QueueDepth:       c.queueDepth.Load(),
@@ -35,5 +39,6 @@ func (c *Counters) Snapshot() Snapshot {
 		JobsProcessed:    c.jobsProcessed.Load(),
 		JobsFailed:       c.jobsFailed.Load(),
 		JobsDeadLettered: c.jobsDeadLettered.Load(),
+		JobsAbandoned:    c.jobsAbandoned.Load(),
 	}
 }

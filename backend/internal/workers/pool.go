@@ -7,15 +7,21 @@ import (
 	"log/slog"
 	"runtime/debug"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/am-miracle/evictor/internal/metrics"
 )
 
 var (
-	ErrQueueFull   = errors.New("worker queue full")
-	ErrPoolStopped = errors.New("worker pool stopped")
+	ErrQueueFull       = errors.New("worker queue full")
+	ErrPoolStopped     = errors.New("worker pool stopped")
+	ErrDrainIncomplete = errors.New("worker drain incomplete")
 )
+
+// Grace for cancelled jobs to return, so the abandoned count does not race
+// jobs that are already unwinding.
+const unwindWindow = 100 * time.Millisecond
 
 type Job func(context.Context) error
 type DeadLetterFunc func(Job, error)
@@ -44,6 +50,8 @@ type Pool struct {
 	stopping     bool
 	executionCtx context.Context
 	cancelJobs   context.CancelFunc
+	inFlight     atomic.Int64
+	abandoned    atomic.Int64
 }
 
 func NewPool(options Options) *Pool {
@@ -119,8 +127,24 @@ func (p *Pool) Start(ctx context.Context) {
 			select {
 			case <-workersDone:
 			case <-timer.C:
+				// Recording the backlog here rather than leaving it to the
+				// workers keeps one stuck job from burying the rest (BR-14),
+				// and the bounded wait keeps a stalled job or dead-letter sink
+				// from holding the pool open.
 				p.cancelJobs()
-				<-workersDone
+				settled := make(chan struct{})
+				go func() {
+					p.drainQueue()
+					<-workersDone
+					close(settled)
+				}()
+				unwind := time.NewTimer(unwindWindow)
+				defer unwind.Stop()
+				select {
+				case <-settled:
+				case <-unwind.C:
+					p.recordAbandoned()
+				}
 			}
 			p.cancelJobs()
 			close(p.done)
@@ -128,13 +152,37 @@ func (p *Pool) Start(ctx context.Context) {
 	})
 }
 
+// Wait reports ErrDrainIncomplete when work was left unaccounted for at the
+// drain deadline, so callers can surface the loss instead of assuming success.
 func (p *Pool) Wait(ctx context.Context) error {
 	select {
 	case <-p.done:
+		if abandoned := p.abandoned.Load(); abandoned > 0 {
+			return fmt.Errorf("%w: %d job(s) unaccounted for at the drain deadline", ErrDrainIncomplete, abandoned)
+		}
 		return nil
 	case <-ctx.Done():
 		return ctx.Err()
 	}
+}
+
+// Workers consume the same closed channel, so each job is recorded exactly
+// once whichever gets to it first.
+func (p *Pool) drainQueue() {
+	for job := range p.jobs {
+		p.jobDequeued()
+		p.recordDeadLetter(job, p.executionCtx.Err())
+	}
+}
+
+func (p *Pool) recordAbandoned() {
+	count := p.inFlight.Load() + int64(len(p.jobs))
+	if count <= 0 {
+		return
+	}
+	p.abandoned.Store(count)
+	p.metrics.AddJobsAbandoned(int(count))
+	p.logger.Error("drain deadline expired with work unaccounted for", "abandoned", count)
 }
 
 func (p *Pool) stopAccepting() {
@@ -150,8 +198,6 @@ func (p *Pool) work() {
 	for job := range p.jobs {
 		p.jobDequeued()
 		if err := p.executionCtx.Err(); err != nil {
-			p.metrics.JobFailed()
-			p.metrics.JobDeadLettered()
 			p.recordDeadLetter(job, err)
 			continue
 		}
@@ -166,6 +212,8 @@ func (p *Pool) jobDequeued() {
 }
 
 func (p *Pool) execute(ctx context.Context, job Job) {
+	p.inFlight.Add(1)
+	defer p.inFlight.Add(-1)
 	var err error
 	for attempt := 1; attempt <= p.maxAttempts; attempt++ {
 		err = runJob(ctx, job)
@@ -178,12 +226,12 @@ func (p *Pool) execute(ctx context.Context, job Job) {
 			break
 		}
 	}
-	p.metrics.JobFailed()
-	p.metrics.JobDeadLettered()
 	p.recordDeadLetter(job, err)
 }
 
 func (p *Pool) recordDeadLetter(job Job, err error) {
+	p.metrics.JobFailed()
+	p.metrics.JobDeadLettered()
 	p.logger.Error("job dead-lettered", "error", err)
 	if p.deadLetter != nil {
 		p.deadLetter(job, err)

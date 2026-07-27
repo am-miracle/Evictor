@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net"
@@ -89,7 +90,10 @@ func run() int {
 	}
 	waitCtx, cancelWait := shutdownBudget.Context()
 	defer cancelWait()
-	if err := pool.Wait(waitCtx); err != nil {
+	switch err := pool.Wait(waitCtx); {
+	case errors.Is(err, workers.ErrDrainIncomplete):
+		logger.Error("workers abandoned at the drain deadline", "error", err)
+	case err != nil:
 		logger.Error("workers did not stop cleanly", "error", err)
 		return 1
 	}
