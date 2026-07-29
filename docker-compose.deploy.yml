@@ -35,6 +35,7 @@ services:
     image: "${BACKEND_IMAGE:?BACKEND_IMAGE is required}:${IMAGE_TAG:?IMAGE_TAG is required}"
     environment:
       EVICTOR_ROLE: api
+      LOG_LEVEL: "${LOG_LEVEL:-info}"
       PORT: 8080
       DATABASE_URL_FILE: /run/secrets/database_url
       EVICTOR_ENCRYPTION_KEY_FILE: /run/secrets/encryption_key
@@ -75,6 +76,7 @@ services:
     command: ["worker"]
     environment:
       EVICTOR_ROLE: worker
+      LOG_LEVEL: "${LOG_LEVEL:-info}"
       DATABASE_URL_FILE: /run/secrets/database_url
       EVICTOR_ENCRYPTION_KEY_FILE: /run/secrets/encryption_key
     secrets:

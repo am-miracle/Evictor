@@ -34,7 +34,7 @@ func run() int {
 		_, _ = fmt.Fprintln(os.Stderr, err)
 		return 1
 	}
-	logger := logging.New(cfg.Environment, os.Stdout)
+	logger := logging.New(cfg.Environment, cfg.LogLevel, os.Stdout)
 	slog.SetDefault(logger)
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)

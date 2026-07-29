@@ -28,6 +28,7 @@ func (Secret) LogValue() slog.Value { return slog.StringValue("[REDACTED]") }
 
 type Config struct {
 	Environment       Environment
+	LogLevel          slog.Level
 	Role              Role
 	Port              int
 	DatabaseURL       Secret
@@ -70,12 +71,17 @@ func Load(lookup Lookup) (Config, error) {
 	if environment != Development && environment != Production {
 		return Config{}, fmt.Errorf("EVICTOR_ENV must be %q or %q", Development, Production)
 	}
+	logLevel, err := parseLogLevel(lookup("LOG_LEVEL"))
+	if err != nil {
+		return Config{}, err
+	}
 	role, err := ParseRole(defaultValue(lookup("EVICTOR_ROLE"), string(RoleAPI)))
 	if err != nil {
 		return Config{}, err
 	}
 	return Config{
 		Environment:       environment,
+		LogLevel:          logLevel,
 		Role:              role,
 		Port:              port,
 		DatabaseURL:       databaseURL,
@@ -85,6 +91,21 @@ func Load(lookup Lookup) (Config, error) {
 		WorkerMaxAttempts: maxAttempts,
 		ShutdownTimeout:   15 * time.Second,
 	}, nil
+}
+
+func parseLogLevel(value string) (slog.Level, error) {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "", "info":
+		return slog.LevelInfo, nil
+	case "debug":
+		return slog.LevelDebug, nil
+	case "warn":
+		return slog.LevelWarn, nil
+	case "error":
+		return slog.LevelError, nil
+	default:
+		return 0, errors.New("LOG_LEVEL must be debug, info, warn, or error")
+	}
 }
 
 func FromEnvironment() (Config, error) { return Load(os.Getenv) }

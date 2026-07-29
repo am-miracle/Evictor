@@ -32,8 +32,36 @@ func TestLoadReadsDirectValuesAndDefaults(t *testing.T) {
 		t.Fatal(err)
 	}
 	if got.Port != 8080 || got.Environment != config.Development ||
-		got.WorkerCount != 4 || got.QueueCapacity != 100 || got.WorkerMaxAttempts != 3 {
+		got.LogLevel != slog.LevelInfo || got.WorkerCount != 4 ||
+		got.QueueCapacity != 100 || got.WorkerMaxAttempts != 3 {
 		t.Fatalf("unexpected defaults: %+v", got)
+	}
+}
+
+func TestLoadReadsLogLevel(t *testing.T) {
+	values := map[string]string{
+		"DATABASE_URL":           "postgres://localhost/evictor",
+		"EVICTOR_ENCRYPTION_KEY": "encryption-secret",
+		"LOG_LEVEL":              "warn",
+	}
+	got, err := config.Load(func(key string) string { return values[key] })
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.LogLevel != slog.LevelWarn {
+		t.Fatalf("got log level %s, want WARN", got.LogLevel)
+	}
+}
+
+func TestLoadRejectsInvalidLogLevel(t *testing.T) {
+	values := map[string]string{
+		"DATABASE_URL":           "postgres://localhost/evictor",
+		"EVICTOR_ENCRYPTION_KEY": "encryption-secret",
+		"LOG_LEVEL":              "verbose",
+	}
+	_, err := config.Load(func(key string) string { return values[key] })
+	if err == nil || !strings.Contains(err.Error(), "LOG_LEVEL") {
+		t.Fatalf("expected LOG_LEVEL error, got %v", err)
 	}
 }
 
