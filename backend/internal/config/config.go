@@ -71,7 +71,7 @@ func Load(lookup Lookup) (Config, error) {
 	if environment != Development && environment != Production {
 		return Config{}, fmt.Errorf("EVICTOR_ENV must be %q or %q", Development, Production)
 	}
-	logLevel, err := parseLogLevel(lookup("LOG_LEVEL"))
+	logLevel, err := parseLogLevel(defaultValue(lookup("LOG_LEVEL"), "info"))
 	if err != nil {
 		return Config{}, err
 	}
@@ -104,8 +104,8 @@ func ParseRole(value string) (Role, error) {
 }
 
 func parseLogLevel(value string) (slog.Level, error) {
-	switch strings.ToLower(strings.TrimSpace(value)) {
-	case "", "info":
+	switch strings.ToLower(value) {
+	case "info":
 		return slog.LevelInfo, nil
 	case "debug":
 		return slog.LevelDebug, nil
