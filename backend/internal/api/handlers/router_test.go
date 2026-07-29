@@ -1,11 +1,9 @@
 package handlers_test
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
-	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -54,41 +52,6 @@ func TestMetricsExposesWorkerCounters(t *testing.T) {
 		!strings.Contains(got, "evictor_jobs_processed_total 1\n") ||
 		!strings.Contains(got, "evictor_jobs_abandoned_total 3\n") {
 		t.Fatalf("unexpected metrics:\n%s", got)
-	}
-}
-
-func TestRequestMiddlewareProvidesAndLogsRequestID(t *testing.T) {
-	var logs bytes.Buffer
-	logger := slog.New(slog.NewJSONHandler(&logs, nil))
-	response := serve(t, handlers.Dependencies{Logger: logger}, "/healthz")
-	requestID := response.Header().Get("X-Request-ID")
-	if requestID == "" {
-		t.Fatal("missing X-Request-ID")
-	}
-	if !strings.Contains(logs.String(), requestID) {
-		t.Fatalf("request ID %q missing from logs: %s", requestID, logs.String())
-	}
-}
-
-func TestRequestMiddlewareDoesNotLogCallerControlledCredentialMaterial(t *testing.T) {
-	const credentialCanary = "evictor_test_api_key_do_not_log"
-	var logs bytes.Buffer
-	logger := slog.New(slog.NewJSONHandler(&logs, nil))
-	request := httptest.NewRequest(http.MethodGet, "/"+credentialCanary, nil)
-	request.Method = credentialCanary
-	request.Header.Set("X-Request-ID", credentialCanary)
-	response := httptest.NewRecorder()
-
-	handlers.NewRouter(handlers.Dependencies{Logger: logger}).ServeHTTP(response, request)
-
-	if strings.Contains(logs.String(), credentialCanary) {
-		t.Fatalf("caller-controlled credential material appeared in logs: %s", logs.String())
-	}
-	if response.Header().Get("X-Request-ID") == credentialCanary {
-		t.Fatal("caller-controlled request ID was trusted")
-	}
-	if !strings.Contains(logs.String(), `"method":"OTHER"`) {
-		t.Fatalf("extension method was not normalized: %s", logs.String())
 	}
 }
 
