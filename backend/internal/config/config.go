@@ -93,6 +93,16 @@ func Load(lookup Lookup) (Config, error) {
 	}, nil
 }
 
+func FromEnvironment() (Config, error) { return Load(os.Getenv) }
+
+func ParseRole(value string) (Role, error) {
+	role := Role(strings.TrimSpace(value))
+	if role != RoleAPI && role != RoleWorker {
+		return "", fmt.Errorf("EVICTOR_ROLE must be %q or %q", RoleAPI, RoleWorker)
+	}
+	return role, nil
+}
+
 func parseLogLevel(value string) (slog.Level, error) {
 	switch strings.ToLower(strings.TrimSpace(value)) {
 	case "", "info":
@@ -106,16 +116,6 @@ func parseLogLevel(value string) (slog.Level, error) {
 	default:
 		return 0, errors.New("LOG_LEVEL must be debug, info, warn, or error")
 	}
-}
-
-func FromEnvironment() (Config, error) { return Load(os.Getenv) }
-
-func ParseRole(value string) (Role, error) {
-	role := Role(strings.TrimSpace(value))
-	if role != RoleAPI && role != RoleWorker {
-		return "", fmt.Errorf("EVICTOR_ROLE must be %q or %q", RoleAPI, RoleWorker)
-	}
-	return role, nil
 }
 
 func requiredSecret(lookup Lookup, name string) (Secret, error) {
