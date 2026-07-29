@@ -31,10 +31,23 @@ func TestLoadReadsDirectValuesAndDefaults(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.Port != 8080 || got.Environment != config.Development ||
-		got.LogLevel != slog.LevelInfo || got.WorkerCount != 4 ||
-		got.QueueCapacity != 100 || got.WorkerMaxAttempts != 3 {
-		t.Fatalf("unexpected defaults: %+v", got)
+	if got.Environment != config.Development {
+		t.Errorf("Environment = %q, want %q", got.Environment, config.Development)
+	}
+	if got.LogLevel != slog.LevelInfo {
+		t.Errorf("LogLevel = %s, want INFO", got.LogLevel)
+	}
+	if got.Port != 8080 {
+		t.Errorf("Port = %d, want 8080", got.Port)
+	}
+	if got.WorkerCount != 4 {
+		t.Errorf("WorkerCount = %d, want 4", got.WorkerCount)
+	}
+	if got.QueueCapacity != 100 {
+		t.Errorf("QueueCapacity = %d, want 100", got.QueueCapacity)
+	}
+	if got.WorkerMaxAttempts != 3 {
+		t.Errorf("WorkerMaxAttempts = %d, want 3", got.WorkerMaxAttempts)
 	}
 }
 
