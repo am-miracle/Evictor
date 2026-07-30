@@ -74,6 +74,38 @@ services:
         max-size: 10m
         max-file: "3"
 
+  mock-provider:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.mockprovider
+    environment:
+      PORT: 8091
+    ports:
+      - "${MOCK_PROVIDER_PORT:-8091}:8091"
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8091/healthz"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256M
+        reservations:
+          cpus: "0.1"
+          memory: 64M
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 10
+    restart: on-failure:10
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+
   worker:
     build:
       context: ./backend

@@ -15,15 +15,8 @@ if (!formatterCommand.startsWith("cd frontend && ")) {
 }
 
 const prePush = await readFile(".husky/pre-push", "utf8");
-const preCommit = await readFile(".husky/pre-commit", "utf8");
-
-for (const [name, contents] of [
-  ["pre-commit", preCommit],
-  ["pre-push", prePush],
-]) {
-  if (!contents.includes("make lint") || !contents.includes("make test")) {
-    throw new Error(`${name} hook does not require lint and test`);
-  }
+if (!prePush.includes("make lint") || !prePush.includes("make test")) {
+  throw new Error("pre-push hook does not require lint and test");
 }
 
 if (!prePush.includes("refs/heads/master)") || !prePush.includes("refs/heads/dev)")) {

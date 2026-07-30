@@ -51,3 +51,11 @@ bin/
 # .vscode/
 
 docs
+
+# Local planning/spec notes, not meant to be committed
+/000-INDEX.md
+/EVICTOR_API_CONTRACT.md
+/EVICTOR_BUILD_ORDER.md
+/EVICTOR_BUSINESS_RULES.md
+/EVICTOR_FEATURE_SPEC.md
+/EVICTOR_PLANNING.md
