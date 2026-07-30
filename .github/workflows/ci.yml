@@ -43,12 +43,22 @@ jobs:
       - run: npm ci
       - name: Validate Conventional Commits
         env:
+          EVENT_NAME: ${{ github.event_name }}
           BASE_REF: ${{ github.base_ref }}
           HEAD_REF: ${{ github.head_ref }}
           BEFORE_SHA: ${{ github.event.before }}
           REF_NAME: ${{ github.ref_name }}
         run: |
           zero_sha=0000000000000000000000000000000000000000
+          if [ "$EVENT_NAME" = "push" ]; then
+            case "$REF_NAME" in
+              dev|master)
+                echo "Skipping commitlint for protected-branch PR merge."
+                exit 0
+                ;;
+            esac
+          fi
+
           if [ "$BASE_REF" = "master" ] && [ "$HEAD_REF" = "dev" ]; then
             git log -1 --pretty=%B | npx commitlint --verbose
           elif [ -n "$BASE_REF" ]; then
