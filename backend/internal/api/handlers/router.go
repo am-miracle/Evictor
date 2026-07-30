@@ -1,22 +1,39 @@
-// Package handlers contains HTTP handlers for the versioned API.
+// Package handlers contains HTTP route assembly and handlers for the versioned API.
 package handlers
 
 import (
-	"encoding/json"
+	"context"
+	"log/slog"
 	"net/http"
-	"time"
+
+	"github.com/go-chi/chi/v5"
+
+	"github.com/am-miracle/evictor/internal/api/middleware"
+	"github.com/am-miracle/evictor/internal/metrics"
 )
 
-const ReadHeaderTimeout = 5 * time.Second
-
-func NewHandler() http.Handler {
-	mux := http.NewServeMux()
-	mux.HandleFunc("GET /healthz", healthz)
-	return mux
+type DatabasePinger interface {
+	Ping(context.Context) error
 }
 
-func healthz(response http.ResponseWriter, _ *http.Request) {
-	response.Header().Set("Content-Type", "application/json; charset=utf-8")
-	response.WriteHeader(http.StatusOK)
-	_ = json.NewEncoder(response).Encode(map[string]string{"status": "ok"})
+type Dependencies struct {
+	Database DatabasePinger
+	Metrics  *metrics.Counters
+	Logger   *slog.Logger
+}
+
+func NewRouter(dependencies Dependencies) http.Handler {
+	if dependencies.Logger == nil {
+		dependencies.Logger = slog.Default()
+	}
+	if dependencies.Metrics == nil {
+		dependencies.Metrics = metrics.NewCounters(0)
+	}
+
+	router := chi.NewRouter()
+	router.Use(middleware.RequestLogger(dependencies.Logger))
+	router.Get("/healthz", healthHandler)
+	router.Get("/readyz", readinessHandler(dependencies.Database))
+	router.Get("/metrics", metricsHandler(dependencies.Metrics))
+	return router
 }

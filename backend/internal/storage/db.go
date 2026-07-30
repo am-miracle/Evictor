@@ -32,7 +32,7 @@ func New(ctx context.Context, databaseURL string) (*Store, error) {
 
 func (s *Store) Close() { s.pool.Close() }
 
-func (s *Store) Pool() *pgxpool.Pool { return s.pool }
+func (s *Store) Ping(ctx context.Context) error { return s.pool.Ping(ctx) }
 
 func RunMigrations(databaseURL string) error {
 	m, err := newMigrator(databaseURL)

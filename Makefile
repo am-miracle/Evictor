@@ -7,15 +7,18 @@ DATABASE_URL ?= $(shell sed 's#@postgres:#@localhost:#' secrets/dev/database_url
 MIGRATE_DATABASE_URL = $(shell printf '%s' '$(DATABASE_URL)' | sed -E 's#^postgres(ql)?://#pgx5://#')
 MIGRATE = go run -tags 'pgx5' github.com/golang-migrate/migrate/v4/cmd/migrate -path internal/migrations -database "$(MIGRATE_DATABASE_URL)"
 
-.PHONY: dev test test-integration lint migrate migrate-down changelog deploy-staging deploy-production
+.PHONY: dev test test-backend test-integration lint migrate migrate-down changelog deploy-staging deploy-production
 
 dev:
 	./scripts/setup-secrets.sh dev
 	docker compose up --build
 
 test:
-	cd backend && go test ./...
+	$(MAKE) test-backend
 	cd frontend && npm test
+
+test-backend:
+	./scripts/test-backend.sh
 
 test-integration:
 	cd backend && go test -tags=integration ./...
