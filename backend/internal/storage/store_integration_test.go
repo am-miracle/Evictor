@@ -91,6 +91,14 @@ func seedEndpoint(t *testing.T, s *storage.Store, projectID, name string) *model
 	return e
 }
 
+func TestPingReportsReachability(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := testStore.Ping(ctx); err != nil {
+		t.Fatalf("ping: %v", err)
+	}
+}
+
 func TestProjectsRoundTrip(t *testing.T) {
 	s := requireStore(t)
 	ctx := context.Background()
